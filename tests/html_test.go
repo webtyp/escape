@@ -1,85 +1,12 @@
-package fmt
+package escape_test
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"webtyp.com/escape"
+)
 
-func TestHtml(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []any
-		expected string
-	}{
-		{
-			name:     "Concatenation simple",
-			args:     []any{"div", "span"},
-			expected: "divspan",
-		},
-		{
-			name:     "Concatenate number and text",
-			args:     []any{123, "abc"},
-			expected: "123abc",
-		},
-		{
-			name:     "2-letter tag regression",
-			args:     []any{"hr", "br"},
-			expected: "hrbr",
-		},
-		{
-			name:     "Format string",
-			args:     []any{"<div class='%s'>", "my-class"},
-			expected: "<div class='my-class'>",
-		},
-		{
-			name:     "Format string with multiple args",
-			args:     []any{"<a href='%s'>%s</a>", "/home", "Home"},
-			expected: "<a href='/home'>Home</a>",
-		},
-		{
-			name:     "Mixed strings without format",
-			args:     []any{"<p>", "Content", "</p>"},
-			expected: "<p>Content</p>",
-		},
-		{
-			name:     "Empty args",
-			args:     []any{},
-			expected: "",
-		},
-		{
-			name:     "String with % but not format",
-			args:     []any{"Width: 100%"},
-			expected: "Width: 100%",
-		},
-		{
-			name:     "String with %% (literal percent)",
-			args:     []any{"Success: 100%%"}, // Fmt treats %% as literal %
-			expected: "Success: 100%",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := Html(tt.args...).String()
-			if got != tt.expected {
-				t.Errorf("Html() = %q, want %q", got, tt.expected)
-			}
-		})
-	}
-}
-
-func BenchmarkHtml(b *testing.B) {
-	b.ReportAllocs()
-	b.Run("Simple", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_ = Html("<div>", "content", "</div>").String()
-		}
-	})
-	b.Run("WithFormat", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			_ = Html("<div class='%s'>", "my-class").String()
-		}
-	})
-}
-
-func TestEscapeAttr(t *testing.T) {
+func TestHTML(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -90,34 +17,17 @@ func TestEscapeAttr(t *testing.T) {
 		{"already-entity", `&amp; &lt; &gt;`, `&amp;amp; &amp;lt; &amp;gt;`}, // double-escape expected
 		{"unicode", `こんにちは & <br> 😊`, `こんにちは &amp; &lt;br&gt; 😊`},
 		{"multiple", `a & b & c`, `a &amp; b &amp; c`},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := Convert(tc.in).EscapeAttr()
-			if got != tc.want {
-				t.Fatalf("%s: got=%q want=%q", tc.name, got, tc.want)
-			}
-		})
-	}
-}
-
-func TestEscapeHTML_TableDriven(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-		want string
-	}{
-		{"empty", "", ""},
 		{"tags", `<div class="x">Tom & Jerry's</div>`, `&lt;div class=&quot;x&quot;&gt;Tom &amp; Jerry&#39;s&lt;/div&gt;`},
-		{"already-entity", `&amp; &lt;`, `&amp;amp; &amp;lt;`},
 		{"emoji-and-tags", `😀 <p>1 & 2</p>`, `😀 &lt;p&gt;1 &amp; 2&lt;/p&gt;`},
 		{"quotes-only", `She said: "Hi"`, `She said: &quot;Hi&quot;`},
+		{"attr-value", `class="btn btn-primary"`, `class=&quot;btn btn-primary&quot;`},
+		{"with-quotes", `onClick="alert('test')"`, `onClick=&quot;alert(&#39;test&#39;)&quot;`},
+		{"url", `https://example.com?a=1&b=2`, `https://example.com?a=1&amp;b=2`},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Convert(tc.in).EscapeHTML()
+			got := escape.HTML(tc.in)
 			if got != tc.want {
 				t.Fatalf("%s: got=%q want=%q", tc.name, got, tc.want)
 			}
@@ -125,7 +35,7 @@ func TestEscapeHTML_TableDriven(t *testing.T) {
 	}
 }
 
-func TestEscapeHTML_CompareStdLib(t *testing.T) {
+func TestHTML_CompareStdLib(t *testing.T) {
 	tests := []struct {
 		name string
 		in   string
@@ -142,18 +52,18 @@ func TestEscapeHTML_CompareStdLib(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Convert(tc.in).EscapeHTML()
+			got := escape.HTML(tc.in)
 
 			// Verify all dangerous characters are escaped
-			if Contains(got, "<") || Contains(got, ">") {
+			if strings.Contains(got, "<") || strings.Contains(got, ">") {
 				t.Errorf("Unescaped angle brackets in output: %q", got)
 			}
 
 			// Verify input characters were processed
 			if tc.in != "" && got == tc.in {
 				// Only fail if input contained escapable characters
-				if Contains(tc.in, "&") || Contains(tc.in, "<") || Contains(tc.in, ">") ||
-					Contains(tc.in, `"`) || Contains(tc.in, "'") {
+				if strings.Contains(tc.in, "&") || strings.Contains(tc.in, "<") || strings.Contains(tc.in, ">") ||
+					strings.Contains(tc.in, `"`) || strings.Contains(tc.in, "'") {
 					t.Errorf("Input was not escaped: %q", tc.in)
 				}
 			}
@@ -162,27 +72,11 @@ func TestEscapeHTML_CompareStdLib(t *testing.T) {
 	}
 }
 
-func TestEscapeAttr_CompareStdLib(t *testing.T) {
-	tests := []struct {
-		name string
-		in   string
-	}{
-		{"attr-value", `class="btn btn-primary"`},
-		{"with-quotes", `onClick="alert('test')"`},
-		{"url", `https://example.com?a=1&b=2`},
-		{"mixed", `Tom & Jerry's "adventure"`},
-		{"empty", ``},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got := Convert(tc.in).EscapeAttr()
-
-			// Verify dangerous characters for attributes are escaped
-			if Contains(got, `"`) || Contains(got, "<") || Contains(got, ">") {
-				t.Errorf("Unescaped dangerous characters in attribute: %q", got)
-			}
-
-		})
+func TestHTMLNoAllocWhenClean(t *testing.T) {
+	allocs := testing.AllocsPerRun(100, func() {
+		_ = escape.HTML("plain text without any special characters")
+	})
+	if allocs != 0 {
+		t.Errorf("expected 0 allocs, got %v", allocs)
 	}
 }

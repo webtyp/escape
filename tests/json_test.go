@@ -1,6 +1,10 @@
-package fmt
+package escape_test
 
-import "testing"
+import (
+	"testing"
+	"webtyp.com/escape"
+	"webtyp.com/fmt"
+)
 
 func TestJSONEscape(t *testing.T) {
 	tests := []struct {
@@ -25,8 +29,9 @@ func TestJSONEscape(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := Convert()
-			JSONEscape(tt.input, b)
+			b := fmt.GetConv()
+			defer b.PutConv()
+			escape.JSON(b, tt.input)
 			out := b.String()
 			if out != tt.expected {
 				t.Errorf("JSONEscape(%q) = %q, want %q", tt.input, out, tt.expected)

@@ -1,12 +1,11 @@
-package fmt
+package escape
 
-// JSONEscape writes s to b with JSON string escaping (without surrounding quotes).
-// Escapes: " → \", \ → \\, newline → \n, carriage return → \r, tab → \t,
-// control chars (< 0x20) → \u00XX.
-//
-// The caller is responsible for writing the surrounding double quotes.
-// This design allows the caller to compose JSON strings without extra allocations.
-func JSONEscape(s string, b *Builder) {
+import "webtyp.com/fmt"
+
+// JSON writes s into b escaped for the inside of a JSON string (no surrounding
+// quotes): " → \"  \ → \\  newline → \n  CR → \r  tab → \t  other bytes < 0x20 → \u00XX.
+// The caller writes the quotes, so strings compose without extra allocations.
+func JSON(b *fmt.Builder, s string) {
 	start := 0
 	for i := 0; i < len(s); i++ {
 		c := s[i]
