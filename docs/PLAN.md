@@ -3,8 +3,9 @@ PLAN: "feat: escape — HTML and JSON escaping moved out of webtyp.com/fmt"
 TAG: v0.1.0
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 6804822554967928155
+PR: https://github.com/webtyp/escape/pull/1
 ---
 
 > This plan is dispatched via the CodeJob workflow. See skill: agents-workflow.
